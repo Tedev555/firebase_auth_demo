@@ -104,8 +104,8 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
     for (int i = 0; i < _pinLength; i++) {
       pinFields.add(
         Container(
-          width: 48.0,
-          height: 48.0,
+          width: 40.0,
+          height: 40.0,
           margin: EdgeInsets.symmetric(horizontal: 8.0),
           child: TextField(
             controller: _pinControllers[i],
