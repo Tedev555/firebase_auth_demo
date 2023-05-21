@@ -1,8 +1,11 @@
 const admin = require("firebase-admin");
 const app = require("express")();
-
+var express = require("express");
 // Create a service account and download its JSON key file.
 const serviceAccount = require("./firebaseKey.json");
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 try {
   admin.initializeApp({
@@ -13,46 +16,48 @@ try {
   console.log("Firebase admin initialization error", err.stack);
 }
 
-// Send verification code to user's phone number
-const phoneNumber = "+8562058888059"; // Replace with the user's actual phone number
-const verificationCode = "123456"; // Replace with the generated verification code
-
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
 app.post("/setCustomClaims", async (req, res) => {
-  // Get the ID token passed from bearer token
   try {
-    const idToken = req.headers.authorization.split("Bearer ")[1];
+    const idToken = req.body.token;
 
     // Verify the ID token and decode its payload.
     const claims = await admin.auth().verifyIdToken(idToken);
-    console.log("claims", claims);
 
     // Verify user is eligible for additional privileges.
-    if (
-      typeof claims.email !== "undefined" &&
-      typeof claims.email_verified !== "undefined" &&
-      claims.email_verified &&
-      claims.email.endsWith("@admin.example.com")
-    ) {
+    if (typeof claims.phone_number !== "undefined" && claims.phone_number) {
       // Add custom claims for additional privileges.
-      // await admin.getAuth().setCustomUserClaims(claims.sub, {
-      //   admin: true,
-      // });
-      await admin.getAuth().setCustomUserClaims(claims.sub, {
+      await admin.auth().setCustomUserClaims(claims.sub, {
         admin: true,
       });
 
       // Tell client to refresh token on user.
-      res.status(200).json({ status: "success", idToken });
+      res.status(200).json({ status: "success" });
     } else {
       // Return nothing.
       res.end(JSON.stringify({ status: "ineligible" }));
     }
   } catch (error) {
     console.log(error);
+    res.status(401).json({ status: "error", error });
+  }
+});
+
+app.get("/verify", async (req, res) => {
+  try {
+    // Retrieve token from request header "Authorization"
+    const idToken = req.headers.authorization.split("Bearer ")[1];
+    const claims = await admin.auth().verifyIdToken(idToken);
+    // Find the user by uid
+    const user = await admin.auth().getUser(claims.sub);
+
+    // Get custom claims from user
+    const customClaims = user.customClaims;
+    res.status(200).json({ status: "success", customClaims });
+  } catch (error) {
     res.status(401).json({ status: "error", error });
   }
 });
